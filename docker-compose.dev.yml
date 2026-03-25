@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8
+    container_name: mysql_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: elegantcut
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  backend:
+    build: ../Elegant-cut--flow-backend
+    container_name: backend_app
+    ports:
+      - "3001:3001"
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: "mysql://root:root@db:3306/elegantcut"
+    volumes:
+      - ../Elegant-cut--flow-backend:/app
+    command: npm run start:dev
+
+  frontend:
+    build: ../Elegant-cut--flow
+    container_name: frontend_app
+    ports:
+      - "5173:5173"
+    volumes:
+      - ../Elegant-cut--flow:/app
+    environment:
+      VITE_API_URL: "http://localhost:3001"
+    command: npm run dev
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:

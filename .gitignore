@@ -1,0 +1,13 @@
+# environment
+.env
+
+# logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# docker
+node_modules
+dist
