@@ -1,9 +1,7 @@
-version: '3.8'
-
 services:
   db:
     image: mysql:8
-    container_name: mysql_db
+    container_name: elegant_mysql_db
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: root
@@ -11,33 +9,105 @@ services:
     ports:
       - "3306:3306"
     volumes:
+      # Volumen persistente: los datos sobreviven aunque borres el contenedor
       - mysql_data:/var/lib/mysql
+    # HEALTHCHECK: Le pregunta a MySQL "¿estás vivo?" cada 10 segundos.
+    # El backend NO arranca hasta que MySQL responda "sí".
+    # Sin esto, el backend crashea porque intenta conectar antes de que
+    # MySQL esté listo (tarda ~15-30 segundos en inicializar).
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-proot" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - elegant-net
 
+  # ========================================================
+  # SERVICIO 2: BACKEND (NestJS + Prisma)
+  # ========================================================
+  # Tu API REST. Se construye desde el Dockerfile del backend.
+  # Espera a que MySQL esté sano (healthy) antes de arrancar.
+  # En modo dev, usa "nest start --watch" para hot-reload.
+  # ========================================================
   backend:
-    build: ../Elegant-cut--flow-backend
-    container_name: backend_app
+    build:
+      # Ruta relativa al Dockerfile del backend
+      context: ../Elegant-cut--flow-backend/elegant-cut-vite-back
+      dockerfile: Dockerfile
+    container_name: elegant_backend_app
     ports:
       - "3001:3001"
     depends_on:
-      - db
+      db:
+        # IMPORTANTE: Solo arranca cuando MySQL pasa el healthcheck
+        condition: service_healthy
     environment:
       DATABASE_URL: "mysql://root:root@db:3306/elegantcut"
+      PORT: "3001"
+      # CORS: Permite que el frontend se conecte al backend
+      CORS_ORIGIN: "http://localhost:5173"
+      # Cloudinary (servicio de imágenes en la nube)
+      CLOUDINARY_CLOUD_NAME: "${CLOUDINARY_CLOUD_NAME:-dbuldg4dt}"
+      CLOUDINARY_API_KEY: "${CLOUDINARY_API_KEY:-658611597774185}"
+      CLOUDINARY_API_SECRET: "${CLOUDINARY_API_SECRET:-}"
     volumes:
-      - ../Elegant-cut--flow-backend:/app
-    command: npm run start:dev
+      - ../Elegant-cut--flow-backend/elegant-cut-vite-back:/usr/src/app
+      # IMPORTANTE: Este volumen anónimo PROTEGE los node_modules del contenedor.
+      # Sin esto, el volume mount de arriba sobrescribiría los node_modules
+      # del contenedor con los de tu Windows (que pueden ser incompatibles
+      # porque se compilaron para Windows, no para Linux/Alpine).
+      - /usr/src/app/node_modules
+    # Comando de arranque en modo desarrollo:
+    # 1. npx prisma generate → Regenera el cliente de Prisma
+    # 2. npx prisma db push  → Sincroniza el schema con MySQL (crea tablas si no existen)
+    # 3. npm run start:dev   → Arranca NestJS con hot-reload (--watch)
+    command: >
+      sh -c "npx prisma generate &&
+             npm run start:dev"
+    networks:
+      - elegant-net
 
+  # ========================================================
+  # SERVICIO 3: FRONTEND (React + Vite)
+  # ========================================================
+  # Tu aplicación React. Se construye desde el Dockerfile del frontend.
+  # En modo dev, usa Vite dev server con hot-reload.
+  # Se conecta al backend a través de http://localhost:3001
+  # ========================================================
   frontend:
-    build: ../Elegant-cut--flow
-    container_name: frontend_app
+    build:
+      # Ruta relativa al Dockerfile del frontend
+      context: ../Elegant-cut--flow/Elegant-Cut-vite
+      dockerfile: dockerfile
+    container_name: elegant_frontend_app
     ports:
       - "5173:5173"
-    volumes:
-      - ../Elegant-cut--flow:/app
-    environment:
-      VITE_API_URL: "http://localhost:3001"
-    command: npm run dev
     depends_on:
       - backend
+    environment:
+      # URL del backend que usa axios para las peticiones API
+      VITE_API_URL: "http://localhost:3001/api"
+    volumes:
+      # Sincroniza tu código local con el contenedor para hot-reload
+      - ../Elegant-cut--flow/Elegant-Cut-vite:/app
+      # Protege los node_modules del contenedor (misma razón que el backend)
+      - /app/node_modules
+    # Arranca Vite con --host para escuchar en 0.0.0.0
+    command: npm run dev -- --host
+    networks:
+      - elegant-net
 
+networks:
+  elegant-net:
+    driver: bridge
+
+# ==========================================================
+# VOLÚMENES
+# ==========================================================
+# Los volúmenes son como "discos duros virtuales" que persisten
+# datos aunque borres los contenedores.
+# ==========================================================
 volumes:
   mysql_data:
