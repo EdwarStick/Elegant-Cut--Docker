@@ -7,7 +7,7 @@ services:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: elegantcut
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       # Volumen persistente: los datos sobreviven aunque borres el contenedor
       - mysql_data:/var/lib/mysql
@@ -19,8 +19,8 @@ services:
       test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-proot" ]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 30s
+      retries: 10
+      start_period: 60s
     networks:
       - elegant-net
 
@@ -33,9 +33,9 @@ services:
   # ========================================================
   backend:
     build:
-      # Ruta relativa al Dockerfile del backend
+      # Dockerfile optimizado para desarrollo (sin npm run build)
       context: ../Elegant-cut--flow-backend/elegant-cut-vite-back
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: elegant_backend_app
     ports:
       - "3001:3001"
@@ -52,6 +52,10 @@ services:
       CLOUDINARY_CLOUD_NAME: "${CLOUDINARY_CLOUD_NAME:-dbuldg4dt}"
       CLOUDINARY_API_KEY: "${CLOUDINARY_API_KEY:-658611597774185}"
       CLOUDINARY_API_SECRET: "${CLOUDINARY_API_SECRET:-}"
+      # Credenciales Gmail para envío de correos (recuperación de contraseña)
+      EMAIL_USER: "${EMAIL_USER:-}"
+      EMAIL_PASS: "${EMAIL_PASS:-}"
+      JWT_SECRET: "${JWT_SECRET:-elegantcut_secret_key}"
     volumes:
       - ../Elegant-cut--flow-backend/elegant-cut-vite-back:/usr/src/app
       # IMPORTANTE: Este volumen anónimo PROTEGE los node_modules del contenedor.
@@ -65,6 +69,7 @@ services:
     # 3. npm run start:dev   → Arranca NestJS con hot-reload (--watch)
     command: >
       sh -c "npx prisma generate &&
+             npx prisma db push --accept-data-loss &&
              npm run start:dev"
     networks:
       - elegant-net
