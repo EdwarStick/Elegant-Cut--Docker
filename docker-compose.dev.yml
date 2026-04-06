@@ -1,28 +1,32 @@
 services:
-  db:
-    image: mysql:8
-    container_name: elegant_mysql_db
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: elegantcut
-    ports:
-      - "3307:3306"
-    volumes:
-      # Volumen persistente: los datos sobreviven aunque borres el contenedor
-      - mysql_data:/var/lib/mysql
-    # HEALTHCHECK: Le pregunta a MySQL "¿estás vivo?" cada 10 segundos.
-    # El backend NO arranca hasta que MySQL responda "sí".
-    # Sin esto, el backend crashea porque intenta conectar antes de que
-    # MySQL esté listo (tarda ~15-30 segundos en inicializar).
-    healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-proot" ]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 60s
-    networks:
-      - elegant-net
+  #  db:
+  #    image: mysql:8
+  #    container_name: elegant_mysql_db
+  #    restart: always
+  #    environment:
+  #      MYSQL_ROOT_PASSWORD: root
+  #      MYSQL_DATABASE: elegantcut
+  #    ports:
+  #      - "3307:3306"
+  #    volumes:
+  #      # Volumen persistente: los datos sobreviven aunque borres el contenedor
+  #      - mysql_data:/var/lib/mysql
+  #      # Carga automática: MySQL ejecuta este .sql SOLO la primera vez
+  #      # que el volumen está vacío (ej: al clonar en otro dispositivo).
+  #      # Si mysql_data ya tiene datos, este archivo se ignora.
+  #      - ./backup_elegantcut_utf8.sql:/docker-entrypoint-initdb.d/init.sql
+  #    # HEALTHCHECK: Le pregunta a MySQL "¿estás vivo?" cada 10 segundos.
+  #    # El backend NO arranca hasta que MySQL responda "sí".
+  #    # Sin esto, el backend crashea porque intenta conectar antes de que
+  #    # MySQL esté listo (tarda ~15-30 segundos en inicializar).
+  #    healthcheck:
+  #      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-proot" ]
+  #      interval: 10s
+  #      timeout: 5s
+  #      retries: 10
+  #      start_period: 60s
+  #    networks:
+  #      - elegant-net
 
   # ========================================================
   # SERVICIO 2: BACKEND (NestJS + Prisma)
@@ -39,12 +43,13 @@ services:
     container_name: elegant_backend_app
     ports:
       - "3001:3001"
-    depends_on:
-      db:
-        # IMPORTANTE: Solo arranca cuando MySQL pasa el healthcheck
-        condition: service_healthy
+      - "5555:5555" # Prisma Studio (visualizar BD)
+    #    depends_on:
+    #      db:
+    #        # IMPORTANTE: Solo arranca cuando MySQL pasa el healthcheck
+    #        condition: service_healthy
     environment:
-      DATABASE_URL: "mysql://root:root@db:3306/elegantcut"
+      DATABASE_URL: "${DATABASE_URL}"
       PORT: "3001"
       # CORS: Permite que el frontend se conecte al backend
       CORS_ORIGIN: "http://localhost:5173"
@@ -109,10 +114,7 @@ networks:
     driver: bridge
 
 # ==========================================================
-# VOLÚMENES
+# VOLÚMENES (desactivado - la BD está en Aiven Cloud)
 # ==========================================================
-# Los volúmenes son como "discos duros virtuales" que persisten
-# datos aunque borres los contenedores.
-# ==========================================================
-volumes:
-  mysql_data:
+# volumes:
+#   mysql_data:
