@@ -10,7 +10,7 @@ if (-Not (Test-Path ./n8n_workflows.json)) {
 docker cp ./n8n_workflows.json elegant_n8n:/home/node/.n8n/workflows_import.json
 
 # 2. Importar los flujos dentro del contenedor
-docker exec elegant_n8n n8n import:workflow /home/node/.n8n/workflows_import.json
+docker exec elegant_n8n n8n import:workflow --input=/home/node/.n8n/workflows_import.json
 
 Write-Host "✅ ¡Éxito! Los flujos han sido importados en tu instancia local de n8n." -ForegroundColor Green
 Write-Host "Reiniciando n8n para asegurar que todo esté sincronizado..." -ForegroundColor Gray
