@@ -109,12 +109,36 @@ services:
     networks:
       - elegant-net
 
+  # ========================================================
+  # SERVICIO 4: n8n (Automatización No-Code)
+  # ========================================================
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: elegant_n8n
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - WEBHOOK_URL=http://localhost:5678/
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - elegant-net
+
 networks:
   elegant-net:
     driver: bridge
 
+
 # ==========================================================
-# VOLÚMENES (desactivado - la BD está en Aiven Cloud)
+
 # ==========================================================
-# volumes:
-#   mysql_data:
+# VOLÚMENES
+# ==========================================================
+volumes:
+  mysql_data:
+  n8n_data: # <--- Disco persistente para n8n
