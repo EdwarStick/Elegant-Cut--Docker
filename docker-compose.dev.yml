@@ -1,0 +1,115 @@
+services:
+
+  # ========================================================
+  # SERVICIO 2: BACKEND (NestJS + Prisma)
+  # ========================================================
+  # Tu API REST. Se construye desde el Dockerfile del backend.
+  # Espera a que MySQL esté sano (healthy) antes de arrancar.
+  # En modo dev, usa "nest start --watch" para hot-reload.
+  # ========================================================
+  backend:
+    build:
+      # Dockerfile optimizado para desarrollo (sin npm run build)
+      context: ../Elegant-cut--flow-backend/elegant-cut-vite-back
+      dockerfile: Dockerfile.dev
+    container_name: elegant_backend_app
+    ports:
+      - "3001:3001"
+      - "5555:5555" # Prisma Studio (visualizar BD)
+    #    depends_on:
+    #      db:
+    #        # IMPORTANTE: Solo arranca cuando MySQL pasa el healthcheck
+    #        condition: service_healthy
+    environment:
+      DATABASE_URL: "${DATABASE_URL}"
+      PORT: "3001"
+      # CORS: Permite que el frontend se conecte al backend
+      CORS_ORIGIN: "http://localhost:5173"
+      # Cloudinary (servicio de imágenes en la nube)
+      CLOUDINARY_CLOUD_NAME: "${CLOUDINARY_CLOUD_NAME:-dbuldg4dt}"
+      CLOUDINARY_API_KEY: "${CLOUDINARY_API_KEY:-658611597774185}"
+      CLOUDINARY_API_SECRET: "${CLOUDINARY_API_SECRET:-}"
+      # Credenciales Gmail para envío de correos (recuperación de contraseña)
+      EMAIL_USER: "${EMAIL_USER:-}"
+      EMAIL_PASS: "${EMAIL_PASS:-}"
+      JWT_SECRET: "${JWT_SECRET:-elegantcut_secret_key}"
+    volumes:
+      - ../Elegant-cut--flow-backend/elegant-cut-vite-back:/usr/src/app
+      # IMPORTANTE: Este volumen anónimo PROTEGE los node_modules del contenedor.
+      # Sin esto, el volume mount de arriba sobrescribiría los node_modules
+      # del contenedor con los de tu Windows (que pueden ser incompatibles
+      # porque se compilaron para Windows, no para Linux/Alpine).
+      - /usr/src/app/node_modules
+    # Comando de arranque en modo desarrollo:
+    # 1. npx prisma generate → Regenera el cliente de Prisma
+    # 2. npx prisma db push  → Sincroniza el schema con MySQL (crea tablas si no existen)
+    # 3. npm run start:dev   → Arranca NestJS con hot-reload (--watch)
+    command: >
+      sh -c "npx prisma generate &&
+             npx prisma db push --accept-data-loss &&
+             npm run start:dev"
+    networks:
+      - elegant-net
+
+  # ========================================================
+  # SERVICIO 3: FRONTEND (React + Vite)
+  # ========================================================
+  # Tu aplicación React. Se construye desde el Dockerfile del frontend.
+  # En modo dev, usa Vite dev server con hot-reload.
+  # Se conecta al backend a través de http://localhost:3001
+  # ========================================================
+  frontend:
+    build:
+      # Ruta relativa al Dockerfile del frontend
+      context: ../Elegant-cut--flow/Elegant-Cut-vite
+      dockerfile: dockerfile
+    container_name: elegant_frontend_app
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    environment:
+      # URL del backend que usa axios para las peticiones API
+      VITE_API_URL: "http://localhost:3001/api"
+    volumes:
+      # Sincroniza tu código local con el contenedor para hot-reload
+      - ../Elegant-cut--flow/Elegant-Cut-vite:/app
+      # Protege los node_modules del contenedor (misma razón que el backend)
+      - /app/node_modules
+    # Arranca Vite con --host para escuchar en 0.0.0.0
+    command: npm run dev -- --host
+    networks:
+      - elegant-net
+
+  # ========================================================
+  # SERVICIO 4: n8n (Automatización No-Code)
+  # ========================================================
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: elegant_n8n
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - WEBHOOK_URL=http://localhost:5678/
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - elegant-net
+
+networks:
+  elegant-net:
+    driver: bridge
+
+
+# ==========================================================
+
+# ==========================================================
+# VOLÚMENES
+# ==========================================================
+volumes:
+  n8n_data: # <--- Disco persistente para n8n
