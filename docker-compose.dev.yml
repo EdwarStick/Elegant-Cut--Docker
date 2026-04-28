@@ -16,10 +16,6 @@ services:
     ports:
       - "3001:3001"
       - "5555:5555" # Prisma Studio (visualizar BD)
-    #    depends_on:
-    #      db:
-    #        # IMPORTANTE: Solo arranca cuando MySQL pasa el healthcheck
-    #        condition: service_healthy
     environment:
       DATABASE_URL: "${DATABASE_URL}"
       PORT: "3001"
@@ -42,11 +38,11 @@ services:
       - /usr/src/app/node_modules
     # Comando de arranque en modo desarrollo:
     # 1. npx prisma generate → Regenera el cliente de Prisma
-    # 2. npx prisma db push  → Sincroniza el schema con MySQL (crea tablas si no existen)
-    # 3. npm run start:dev   → Arranca NestJS con hot-reload (--watch)
+    # 2. npx prisma migrate deploy → Aplica las migraciones pendientes
+    # 3. npm run start:dev → Arranca NestJS con hot-reload (--watch)
     command: >
       sh -c "npx prisma generate &&
-             npx prisma db push --accept-data-loss &&
+             npx prisma migrate deploy &&
              npm run start:dev"
     networks:
       - elegant-net
@@ -104,7 +100,6 @@ services:
 networks:
   elegant-net:
     driver: bridge
-
 
 # ==========================================================
 
