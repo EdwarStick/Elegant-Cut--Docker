@@ -29,6 +29,9 @@ services:
       EMAIL_USER: "${EMAIL_USER:-}"
       EMAIL_PASS: "${EMAIL_PASS:-}"
       JWT_SECRET: "${JWT_SECRET:-elegantcut_secret_key}"
+      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID}"
+      GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET}"
+      GOOGLE_CALLBACK_URL: "${GOOGLE_CALLBACK_URL}"
     volumes:
       - ../Elegant-cut--flow-backend/elegant-cut-vite-back:/usr/src/app
       # IMPORTANTE: Este volumen anónimo PROTEGE los node_modules del contenedor.
@@ -92,10 +95,25 @@ services:
       - N8N_PROTOCOL=http
       - NODE_ENV=production
       - WEBHOOK_URL=http://localhost:5678/
+      - NODE_OPTIONS=--dns-result-order=ipv4first
     volumes:
       - n8n_data:/home/node/.n8n
     networks:
       - elegant-net
+
+  # mysql:
+  #   image: mysql:8.0
+  #   container_name: elegant_mysql
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3306:3306"
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+  #     MYSQL_DATABASE: ${MYSQL_DATABASE:-elegantcut}
+  #   volumes:
+  #     - mysql_data:/var/lib/mysql
+  #   networks:
+  #     - elegant-net
 
 networks:
   elegant-net:
@@ -108,3 +126,4 @@ networks:
 # ==========================================================
 volumes:
   n8n_data: # <--- Disco persistente para n8n
+  mysql_data: # <--- Disco persistente para MySQL
